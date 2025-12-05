@@ -1,0 +1,18 @@
+{
+  "desktop_count": 33,
+  "mobile_count": 0,
+  "load_delay": 1.5,
+  "search_delay": 6.0,
+  "search_url": "https://www.bing.com/search?form=QBRE&q=",
+  "desktop_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edge/126.0.0.0",
+  "mobile_agent": "Mozilla/5.0 (Linux; Android 14; Pixel 6 Build/AP2A.240605.024) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36 Edge/121.0.2277.138",
+  "browser_path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "bing": false,
+  "open_rewards": false,
+  "window": true,
+  "exit": true,
+  "ime": false,
+  "profile": [
+   "Profile 1", "Profile 2", "Profile 3", "Profile 5", "Profile 6"
+  ]
+}

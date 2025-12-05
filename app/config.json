@@ -1,0 +1,14 @@
+{
+    "search_bing": {
+        "mumu_start_time": 10,
+        "bing_start_time": 5,
+        "search_delay_time": 6,
+        "search_count": 3,
+        "run_device_id": [
+            2,
+            4
+        ],
+        "mumu_path": "D:\\software\\MuMu\\nx_main\\MuMuNxMain.exe",
+        "mumu_name": "MuMu安卓设备"
+    }
+}
