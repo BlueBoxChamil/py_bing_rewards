@@ -92,6 +92,7 @@ def click_bing():
 
         # 输入英文词
         pyautogui.typewrite(rand_word)
+        time.sleep(normal_time)
         # type_real(rand_word)
 
         # 按下真实 Enter
@@ -118,7 +119,7 @@ def force_foreground(hwnd):
         0,
         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
     )
-    time.sleep(0.2)
+    time.sleep(normal_time)
 
     # 取消置顶（避免一直置顶）
     win32gui.SetWindowPos(
@@ -130,17 +131,18 @@ def force_foreground(hwnd):
         0,
         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
     )
-    time.sleep(0.2)
+    time.sleep(normal_time)
 
     # 激活窗口
     win32gui.SetForegroundWindow(hwnd)
-    time.sleep(0.2)
+    time.sleep(normal_time)
 
     # 模拟点击标题栏，确保获得输入焦点
     left, top, right, bottom = win32gui.GetWindowRect(hwnd)
     title_x = left + 100
     title_y = top + 10
     pyautogui.click(title_x, title_y)
+    time.sleep(normal_time)
 
 
 ########################################## main
@@ -149,20 +151,48 @@ config_path = os.path.join(current_dir, "config.json")
 with open(config_path, "r", encoding="utf-8") as f:
     user_config = json.load(f)
 
-print(f"user_config: {user_config['search_bing']['mumu_start_time']}")
-print(f"user_config: {user_config['search_bing']['bing_start_time']}")
-print(f"user_config: {user_config['search_bing']['search_delay_time']}")
-print(f"user_config: {user_config['search_bing']['mumu_path']}")
+# 打印json数据
+for item in user_config["search_bing"]:
+    print(f"{item}: {user_config['search_bing'][item]}")
 
-
+# 使用json数据赋值
 mumu_path = user_config["search_bing"]["mumu_path"]
 device_num = len(run_device_id)
 mumu_start_time = int(user_config["search_bing"]["mumu_start_time"])
 bing_start_time = int(user_config["search_bing"]["bing_start_time"])
 search_delay_time = int(user_config["search_bing"]["search_delay_time"])
 search_count = int(user_config["search_bing"]["search_count"])
+normal_time = int(user_config["search_bing"]["normal_time"])
 run_device_id = user_config["search_bing"]["run_device_id"]
 mumu_name = user_config["search_bing"]["mumu_name"]
+
+# ===== 自动计算整个脚本的预计运行时间（仅 sleep 时间） =====
+
+# 计算 click_bing 单次耗时
+T_bing = (
+    bing_start_time
+    + 5 * normal_time
+    + search_delay_time
+    + (search_count - 1) * (6 * normal_time + search_delay_time)
+)
+
+N = len(run_device_id)              # 执行 bing 的次数
+max_id = run_device_id[-1]          # 最大设备 ID
+skip_count = (max_id + 1 - N)       # 跳过的次数（只 sleep normal_time）
+
+# 整个循环耗时
+T_loop = N * T_bing + skip_count * normal_time
+
+# 总耗时：启动模拟器 + 前置延时 + 循环 + 关闭模拟器
+T_total = mumu_start_time + 7 * normal_time + T_loop
+
+# 转换为 分钟 + 秒
+minutes = int(T_total // 60)
+seconds = int(T_total % 60)
+
+print("====== 脚本预计运行时长（仅计算 sleep）======")
+print(f"预计总耗时：{minutes} 分 {seconds} 秒")
+print("================================================")
 
 
 # 打开模拟器
@@ -174,6 +204,7 @@ print("open moblie")
 
 # 将mumu模拟器窗口设置为最前
 hwnd = win32gui.FindWindow(None, mumu_name)
+time.sleep(normal_time)
 if hwnd:
     print("找到窗口")
     force_foreground(hwnd)

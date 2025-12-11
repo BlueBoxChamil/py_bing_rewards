@@ -4,8 +4,9 @@
         "bing_start_time": 5,
         "search_delay_time": 6,
         "search_count": 3,
+        "normal_time": 1,
         "run_device_id": [
-            2,
+            0,
             4
         ],
         "mumu_path": "D:\\software\\MuMu\\nx_main\\MuMuNxMain.exe",

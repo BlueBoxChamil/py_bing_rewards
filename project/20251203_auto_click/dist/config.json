@@ -3,10 +3,11 @@
         "mumu_start_time": 10,
         "bing_start_time": 5,
         "search_delay_time": 6,
-        "search_count": 44,
+        "search_count": 3,
+        "normal_time": 1,
         "run_device_id": [
             0,
-            1
+            4
         ],
         "mumu_path": "D:\\software\\MuMu\\nx_main\\MuMuNxMain.exe",
         "mumu_name": "MuMu安卓设备"
