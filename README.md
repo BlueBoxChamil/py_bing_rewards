@@ -58,22 +58,23 @@
 >
 >    ```
 >    {
->        "search_bing": {
->            "mumu_start_time": 10,
->            "bing_start_time": 5,
->            "search_delay_time": 6,
->            "search_count": 3,
->            "run_device_id": [
->                2,
->                4
->            ],
->            "mumu_path": "D:\\software\\MuMu\\nx_main\\MuMuNxMain.exe",
->            "mumu_name": "MuMu安卓设备"
->        }
+>        "mumu_start_time": 10,
+>        "bing_start_time": 5,
+>        "search_delay_time": 6,
+>        "search_count": 3,
+>        "normal_time": 1,
+>        "run_device_id": [
+>            2,
+>            4
+>        ],
+>        "mumu_name": "MuMu安卓设备",
+>        "mumu_path": "D:\\software\\MuMu\\nx_device\\12.0\\shell\\MuMuNxDevice.exe",
+>        "check_sleep_time": 2,
+>        "check_sleep_count": 5
 >    }
 >    ```
 >
->    
+> 
 >
 > 4. 文件描述
 >
@@ -83,6 +84,8 @@
 >    4. run_device_id是你准备运行哪个bing app，全运行可以改为0,1,2,3,4
 >    5. mumu_path是模拟器安装的目录
 >    6. mumu_name是模拟器的名字，从任务管理器上确认一下，主要是有中英文的区别
+>    7. check_sleep_time是当运行结束之后延时检测mumu是否关闭
+>    8. check_sleep_count是当连续5次都检测到mumu还未关闭时，将发送邮件给我本人提醒运行失败
 >
 
 > [!important]
