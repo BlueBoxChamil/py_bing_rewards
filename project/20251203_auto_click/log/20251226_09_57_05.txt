@@ -1,0 +1,31 @@
+mumu_start_time: 10
+bing_start_time: 5
+search_delay_time: 6
+search_count: 3
+normal_time: 1
+run_device_id: [2, 4]
+mumu_name: MuMu安卓设备
+mumu_path: D:\software\MuMu\nx_device\12.0\shell\MuMuNxDevice.exe
+check_sleep_time: 2
+check_sleep_count: 5
+====== 脚本预计运行时长（仅计算 sleep）======
+预计总耗时：1 分 40 秒
+================================================
+open moblie
+找到窗口
+id = 0:no
+id = 1:no
+id = 2:yes
+完成第 1 次：NHmzULhe
+完成第 2 次：BybKvtHS
+完成第 3 次：dNpVBtZw
+id = 3:no
+id = 4:yes
+完成第 1 次：MsdizZiZ
+完成第 2 次：soFMHpPw
+完成第 3 次：xSbdQXBY
+应用正在运行
+应用未运行
+应用未运行
+应用未运行
+应用未运行

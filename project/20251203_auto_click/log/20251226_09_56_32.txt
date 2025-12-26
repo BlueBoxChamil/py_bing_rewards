@@ -1,0 +1,15 @@
+mumu_start_time: 10
+bing_start_time: 5
+search_delay_time: 6
+search_count: 3
+normal_time: 1
+run_device_id: [2, 4]
+mumu_name: MuMu安卓设备
+mumu_path: D:\software\MuMu\nx_device\12.0\shell\MuMuNxDevice.exe
+check_sleep_time: 2
+check_sleep_count: 5
+====== 脚本预计运行时长（仅计算 sleep）======
+预计总耗时：1 分 40 秒
+================================================
+open moblie
+找到窗口

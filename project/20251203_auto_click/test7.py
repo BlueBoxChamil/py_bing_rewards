@@ -12,8 +12,8 @@ import os
 import psutil
 import smtplib
 import ssl
-import time
 from email.mime.text import MIMEText
+from datetime import datetime
 
 
 # 每个随机英文单词的长度
@@ -32,6 +32,8 @@ bing_start_time = 2.5
 device_num = 3
 
 run_device_id = []
+
+MAX_LOG_FILES = 5
 
 
 def get_current_directory():
@@ -190,10 +192,63 @@ def send_qq_email(send_trigger):
                 pass
 
 
+# -----------------------------
+# 管理日志文件
+# -----------------------------
+def cleanup_old_logs(log_dir, max_files=10):
+    files = [
+        os.path.join(log_dir, f) for f in os.listdir(log_dir) if f.endswith(".txt")
+    ]
+
+    if len(files) <= max_files:
+        return
+
+    # 按创建时间排序（从旧到新）
+    files.sort(key=lambda x: os.path.getctime(x))
+
+    # 删除多余的旧文件
+    for f in files[:-max_files]:
+        os.remove(f)
+
+
+# -----------------------------
+# 重定向 stdout（print 同时写文件和终端）
+# -----------------------------
+class TeeStdout:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, message):
+        for s in self.streams:
+            s.write(message)
+            s.flush()
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+
 ########################################## main ########################################
 if __name__ == "__main__":
-    # 获取json数据
     current_dir = get_current_directory()
+
+    log_dir = os.path.join(current_dir, "log")
+    # 若 log 目录不存在则创建
+    os.makedirs(log_dir, exist_ok=True)
+    # 日志文件管理，最多10个
+    cleanup_old_logs(log_dir, max_files=(MAX_LOG_FILES - 1))
+
+    # 创建新的日志文件
+    timestamp = datetime.now().strftime("%Y%m%d_%H_%M_%S")
+    log_file_path = os.path.join(log_dir, f"{timestamp}.txt")
+    log_file = open(log_file_path, "w", encoding="utf-8")
+
+    # 保存原始 stdout
+    original_stdout = sys.stdout
+    # 重定向
+    sys.stdout = TeeStdout(sys.stdout, log_file)
+
+    # 获取json数据
     config_path = os.path.join(current_dir, "config.json")
     user_config = read_json(config_path)
 
@@ -307,3 +362,6 @@ if __name__ == "__main__":
     if all(results):
         print("！！！！应用仍未关闭！！！！")
         send_qq_email(True)
+
+    sys.stdout = original_stdout
+    log_file.close()
