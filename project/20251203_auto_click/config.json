@@ -11,5 +11,13 @@
     "mumu_name": "MuMu安卓设备",
     "mumu_path": "D:\\software\\MuMu\\nx_device\\12.0\\shell\\MuMuNxDevice.exe",
     "check_sleep_time": 2,
-    "check_sleep_count": 5
+    "check_sleep_count": 5,
+
+    "chrome_path" :"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "chrome_user_data_dir" :"C:\\Users\\28304\\AppData\\Local\\Google\\Chrome\\User Data",
+    "chrome_profile": [
+    "Profile 3",
+    "Profile 1"
+  ],
+  "check_hour":9
 }

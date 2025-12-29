@@ -14,28 +14,40 @@ import smtplib
 import ssl
 from email.mime.text import MIMEText
 from datetime import datetime
+import pyperclip
 
 
 # 每个随机英文单词的长度
 WORD_LEN = 8
-
+# 搜索次数
 search_count = 4
-
+# 每个步骤暂停时间
 normal_time = 0.5
-
+# 每次app搜索停留时间
 search_delay_time = 6
-
+# mumu模拟器启动时间
 mumu_start_time = 10
-
+# 每个bing app启动时间
 bing_start_time = 2.5
-
+# 账号设备数量
 device_num = 3
-
+# 账号设备id
 run_device_id = []
+# 允许保存的最大log文件个数
+MAX_LOG_FILES = 100
+# 谷歌浏览器地址
+chrome_path = ""  # 字符串类型
+# 谷歌浏览器profile
+chrome_user_data_dir = ""  # 字符串类型
+# 要邮件发送的错误信息
+send_fail_msg = ""
+# 检测积分的时间
+check_hour = 9
 
-MAX_LOG_FILES = 5
 
-
+# -----------------------------
+# 获取当前文件目录
+# -----------------------------
 def get_current_directory():
     if getattr(sys, "frozen", False):  # 如果是打包的exe文件
         return os.path.dirname(sys.executable)  # 获取exe所在目录
@@ -43,11 +55,17 @@ def get_current_directory():
         return os.path.dirname(os.path.abspath(__file__))  # 获取脚本所在目录
 
 
+# -----------------------------
+# 读json文件
+# -----------------------------
 def read_json(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
+# -----------------------------
+# 执行app内在bing搜索的操作
+# -----------------------------
 def click_bing():
     # 进入bing app
     keyboard.press_and_release("tab")
@@ -111,43 +129,11 @@ def click_bing():
     time.sleep(normal_time)
 
 
-def force_foreground(hwnd):
-    # 置顶窗口
-    win32gui.SetWindowPos(
-        hwnd,
-        win32con.HWND_TOPMOST,
-        0,
-        0,
-        0,
-        0,
-        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
-    )
-    time.sleep(normal_time)
-
-    # 取消置顶（避免一直置顶）
-    win32gui.SetWindowPos(
-        hwnd,
-        win32con.HWND_NOTOPMOST,
-        0,
-        0,
-        0,
-        0,
-        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
-    )
-    time.sleep(normal_time)
-
-    # 激活窗口
-    win32gui.SetForegroundWindow(hwnd)
-    time.sleep(normal_time)
-
-    # 模拟点击标题栏，确保获得输入焦点
-    left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-    title_x = left + 100
-    title_y = top + 10
-    pyautogui.click(title_x, title_y)
-    time.sleep(normal_time)
-
+# -----------------------------
+# 将焦点聚焦到mumu模拟器
+# -----------------------------
 def force_foreground_safe(hwnd):
+    global send_fail_msg
     """
     尽量安全地将窗口拉到前台并获取焦点
     任何一步失败都不会导致进程崩溃
@@ -155,6 +141,8 @@ def force_foreground_safe(hwnd):
 
     if not hwnd or not win32gui.IsWindow(hwnd):
         print("force_foreground: 非法窗口句柄，跳过")
+        send_fail_msg += "force_foreground: 非法窗口句柄\n"
+        send_qq_email(send_fail_msg)
         return False
 
     try:
@@ -165,6 +153,7 @@ def force_foreground_safe(hwnd):
                 time.sleep(normal_time)
         except Exception as e:
             print(f"ShowWindow 失败: {e}")
+            send_fail_msg += "ShowWindow 失败\n"
 
         # 尝试激活窗口（不强求）
         try:
@@ -172,17 +161,22 @@ def force_foreground_safe(hwnd):
             time.sleep(normal_time)
         except Exception as e:
             print(f"SetForegroundWindow 失败（忽略）: {e}")
+            send_fail_msg += "SetForegroundWindow 失败\n"
 
         # 尝试获取窗口位置
         try:
             left, top, right, bottom = win32gui.GetWindowRect(hwnd)
         except Exception as e:
             print(f"GetWindowRect 失败: {e}")
+            send_fail_msg += "GetWindowRect 失败\n"
+            send_qq_email(send_fail_msg)
             return False
 
         # 坐标合法性校验
         if right <= left or bottom <= top:
             print("窗口坐标异常，跳过点击")
+            send_fail_msg += "窗口坐标异常\n"
+            send_qq_email(send_fail_msg)
             return False
 
         # 安全计算点击点（窗口内部，避免边缘）
@@ -195,6 +189,7 @@ def force_foreground_safe(hwnd):
             time.sleep(normal_time)
         except Exception as e:
             print(f"pyautogui.click 失败（忽略）: {e}")
+            send_fail_msg += "pyautogui.click 失败\n"
 
         return True
 
@@ -204,6 +199,9 @@ def force_foreground_safe(hwnd):
         return False
 
 
+# -----------------------------
+# 判断app是否正在运行
+# -----------------------------
 def is_app_running(exe_path):
     for proc in psutil.process_iter(["exe"]):
         try:
@@ -214,16 +212,25 @@ def is_app_running(exe_path):
     return False
 
 
-def send_qq_email(send_trigger):
-    if not send_trigger:
-        return
-
+# -----------------------------
+# 发送邮件
+# -----------------------------
+def send_qq_email(extra_text=""):
     smtp_server = "smtp.qq.com"
     smtp_port = 465
     sender = "283040422@qq.com"
     password = "yrpslodztrbfcbeb"
 
-    msg = MIMEText("mumu未正常关闭，请打开rustdesk查看", "plain", "utf-8")
+    # 邮件正文（多行）
+    body = f"""领取bing积分失败，请打开 rustdesk 查看
+
+---------- 详细信息 ----------
+{extra_text}
+--------------------------------
+"""
+
+    # msg = MIMEText("mumu未正常关闭，请打开rustdesk查看", "plain", "utf-8")
+    msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = "领取bing失败提醒"
     msg["From"] = sender
     msg["To"] = sender
@@ -284,6 +291,142 @@ class TeeStdout:
             s.flush()
 
 
+# 查找Chrome窗口并置顶
+def focus_chrome_window():
+    def enum_windows(hwnd, lParam):
+        title = win32gui.GetWindowText(hwnd)
+        if "Google Chrome" in title:
+            # 置顶窗口
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            win32gui.SetForegroundWindow(hwnd)
+
+    win32gui.EnumWindows(enum_windows, None)
+
+
+# -----------------------------
+# 再次打开谷歌浏览器检查积分
+# -----------------------------
+def check_score(profile="Profile 3"):
+    url = "https://rewards.bing.com/pointsbreakdown"
+    # 启动Chrome（非阻塞）
+    chrome_process = subprocess.Popen(
+        [
+            chrome_path,
+            f"--user-data-dir={chrome_user_data_dir}",
+            f"--profile-directory={profile}",
+            url,
+        ]
+    )
+
+    focus_chrome_window()
+    print("Chrome已打开并聚焦，Python脚本继续执行…")
+
+    # 给浏览器一点时间启动
+    time.sleep(mumu_start_time)
+    keyboard.press_and_release("ctrl+shift+j")
+    time.sleep(normal_time)
+
+    allow_pasting = "allow pasting"
+    pyautogui.typewrite(allow_pasting)
+    time.sleep(normal_time)
+    pyautogui.press("enter")
+    time.sleep(normal_time)
+
+    js_code = """
+    const points = Array.from(document.querySelectorAll('p.pointsDetail')).map(el => {
+        return {
+            current: el.querySelector('b').innerText,
+            total: el.innerText.split('/')[1].trim()
+        };
+    });console.log(points);copy(JSON.stringify(points, null, 2));
+    """
+
+    # 将代码逐字符输入到控制台
+    pyautogui.typewrite(js_code, interval=normal_time / 100)  # 0.01秒间隔
+
+    pyautogui.press("enter")
+    time.sleep(normal_time)
+    # 获取剪贴板内容
+    data = pyperclip.paste()
+
+    # 尝试解析为 JSON
+    try:
+        json_obj = json.loads(data)
+    except json.JSONDecodeError:
+        print("剪贴板内容不是合法 JSON， 可能是打开网页失败,剪贴板内容为：")
+        print(data)
+        global send_fail_msg
+        send_fail_msg += "剪贴板内容不是合法 JSON， 可能是打开网页失败,剪贴板内容为：\n"
+        send_fail_msg += data + "\n"
+        send_qq_email(send_fail_msg)
+        sys.exit(1)
+
+    for item in json_obj:
+        print(item)
+
+    # 暂时不写入json文件中
+    # # 文件路径，例如写到脚本同目录
+    # desktop = get_current_directory()
+    # safe_profile = profile.replace(" ", "_")
+    # file_path = os.path.join(desktop, f"clipboard_{safe_profile}.json")
+
+    # # 如果文件存在，先删除
+    # if os.path.exists(file_path):
+    #     os.remove(file_path)
+
+    # # 写入 JSON 文件，带缩进
+    # with open(file_path, "w", encoding="utf-8") as f:
+    #     json.dump(json_obj, f, ensure_ascii=False, indent=4)
+
+    # print(f"剪贴板内容已保存到 {file_path}")
+
+    # # 读取并遍历 JSON 对象
+    # data_loaded = read_json(file_path)
+    # for item in data_loaded:
+    #     print(item)
+
+    # tem_msg = "\nnow profile :"
+    # tem_msg += profile
+    # tem_msg += "\n"
+
+    tem_msg = ""
+
+    for index in range(len(json_obj)):
+        item = json_obj[index]  # 获取当前字典
+        current = int(item["current"])
+        total = int(item["total"])
+        # print("第{}条数据 -> current: {}, total: {}".format(index+1, current, total))
+
+        if index == 0:
+            if current < total:
+                print(f"[desktop] Not enough scores were obtained {current}/{total}")
+                tem_msg += f"[desktop] {current}/{total}\n"
+            else:
+                print(f"[desktop] Enough scores were obtained {current}/{total}")
+
+        if index == 1:
+            if current < total:
+                print(f"[mobile] Not enough scores were obtained {current}/{total}")
+                tem_msg += f"[mobile] {current}/{total}\n"
+            else:
+                print(f"[mobile] Enough scores were obtained {current}/{total}")
+
+    chrome_process.terminate()
+    time.sleep(search_delay_time)
+
+    # 获取当前时间
+    now = datetime.now()
+    # 获取小时
+    hour = now.hour
+    print(f"now hour: {hour}")
+    # global send_fail_msg
+
+    # 当tem_msg存在信息并且大于某个时间时，才会传入信息
+    if tem_msg and hour >= 9:
+        send_fail_msg += f"now profile ------------------------> {profile}\n"
+        send_fail_msg += tem_msg
+
+
 ########################################## main ########################################
 if __name__ == "__main__":
     current_dir = get_current_directory()
@@ -325,6 +468,15 @@ if __name__ == "__main__":
     mumu_name = user_config["mumu_name"]
     check_sleep_time = int(user_config["check_sleep_time"])
     check_sleep_count = int(user_config["check_sleep_count"])
+    chrome_path = user_config["chrome_path"]
+    chrome_user_data_dir = user_config["chrome_user_data_dir"]
+    chrome_profile = user_config.get("chrome_profile", [])
+    check_hour = int(user_config["check_hour"])
+
+    # print(chrome_profile)
+    # # 如果想逐个打印
+    # for profile in chrome_profile:
+    #     print(profile)
 
     # print(f'mumu_path: {mumu_path}')
     # print(f'run_device_id: {run_device_id}')
@@ -374,9 +526,9 @@ if __name__ == "__main__":
     # 将mumu模拟器窗口设置为最前
     hwnd = win32gui.FindWindow(None, mumu_name)
     time.sleep(normal_time)
+
     if hwnd:
         print("找到窗口")
-        # force_foreground(hwnd)
         res_ok = force_foreground_safe(hwnd)
         print(f"force_foreground_safe result = {res_ok}")
 
@@ -419,7 +571,17 @@ if __name__ == "__main__":
     # 睡眠参数和次数要放在外部json作为可调数据
     if all(results):
         print("！！！！应用仍未关闭！！！！")
-        send_qq_email(True)
+        # send_qq_email(True)
 
+    # 二次打开谷歌浏览器查看积分
+    for profile_u in chrome_profile:
+        print(profile_u)
+        check_score(profile=profile_u)
+
+    # 若存在错误信息则发送邮件
+    if send_fail_msg:
+        send_qq_email(send_fail_msg)
+
+    # 将打印重新定向
     sys.stdout = original_stdout
     log_file.close()
