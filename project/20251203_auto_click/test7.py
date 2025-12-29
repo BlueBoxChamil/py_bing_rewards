@@ -147,6 +147,62 @@ def force_foreground(hwnd):
     pyautogui.click(title_x, title_y)
     time.sleep(normal_time)
 
+def force_foreground_safe(hwnd):
+    """
+    尽量安全地将窗口拉到前台并获取焦点
+    任何一步失败都不会导致进程崩溃
+    """
+
+    if not hwnd or not win32gui.IsWindow(hwnd):
+        print("force_foreground: 非法窗口句柄，跳过")
+        return False
+
+    try:
+        # 如果窗口最小化，先恢复
+        try:
+            if win32gui.IsIconic(hwnd):
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                time.sleep(normal_time)
+        except Exception as e:
+            print(f"ShowWindow 失败: {e}")
+
+        # 尝试激活窗口（不强求）
+        try:
+            win32gui.SetForegroundWindow(hwnd)
+            time.sleep(normal_time)
+        except Exception as e:
+            print(f"SetForegroundWindow 失败（忽略）: {e}")
+
+        # 尝试获取窗口位置
+        try:
+            left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+        except Exception as e:
+            print(f"GetWindowRect 失败: {e}")
+            return False
+
+        # 坐标合法性校验
+        if right <= left or bottom <= top:
+            print("窗口坐标异常，跳过点击")
+            return False
+
+        # 安全计算点击点（窗口内部，避免边缘）
+        click_x = left + min(100, (right - left) // 2)
+        click_y = top + min(40, (bottom - top) // 2)
+
+        # 尝试模拟点击（失败不致命）
+        try:
+            pyautogui.click(click_x, click_y)
+            time.sleep(normal_time)
+        except Exception as e:
+            print(f"pyautogui.click 失败（忽略）: {e}")
+
+        return True
+
+    except Exception as e:
+        # 理论上不应走到这里，但兜底
+        print(f"force_foreground_safe 发生异常: {e}")
+        return False
+
 
 def is_app_running(exe_path):
     for proc in psutil.process_iter(["exe"]):
@@ -320,7 +376,9 @@ if __name__ == "__main__":
     time.sleep(normal_time)
     if hwnd:
         print("找到窗口")
-        force_foreground(hwnd)
+        # force_foreground(hwnd)
+        res_ok = force_foreground_safe(hwnd)
+        print(f"force_foreground_safe result = {res_ok}")
 
         # 点击真实屏幕区域
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
