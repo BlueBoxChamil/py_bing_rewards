@@ -15,6 +15,7 @@ import ssl
 from email.mime.text import MIMEText
 from datetime import datetime
 import pyperclip
+from pyautogui import FailSafeException
 
 
 # 每个随机英文单词的长度
@@ -136,7 +137,7 @@ def force_foreground_safe(hwnd):
     global send_fail_msg
     """
     尽量安全地将窗口拉到前台并获取焦点
-    任何一步失败都不会导致进程崩溃
+    pyautogui.click 必须执行，但任何异常都不会导致进程崩溃
     """
 
     if not hwnd or not win32gui.IsWindow(hwnd):
@@ -163,7 +164,7 @@ def force_foreground_safe(hwnd):
             print(f"SetForegroundWindow 失败（忽略）: {e}")
             send_fail_msg += "SetForegroundWindow 失败\n"
 
-        # 尝试获取窗口位置
+        # 获取窗口位置
         try:
             left, top, right, bottom = win32gui.GetWindowRect(hwnd)
         except Exception as e:
@@ -179,22 +180,29 @@ def force_foreground_safe(hwnd):
             send_qq_email(send_fail_msg)
             return False
 
-        # 安全计算点击点（窗口内部，避免边缘）
+        # 安全计算点击点
         click_x = left + min(100, (right - left) // 2)
         click_y = top + min(40, (bottom - top) // 2)
 
-        # 尝试模拟点击（失败不致命）
+        # 尝试点击，确保不会异常中断
         try:
             pyautogui.click(click_x, click_y)
             time.sleep(normal_time)
-        except Exception as e:
-            print(f"pyautogui.click 失败（忽略）: {e}")
-            send_fail_msg += "pyautogui.click 失败\n"
+        except FailSafeException:
+            print("pyautogui fail-safe 触发，点击跳过")
+            send_fail_msg += "pyautogui.click fail-safe 触发\n"
+            send_qq_email(send_fail_msg)
+            return False
+        except BaseException as e:  # 捕获所有其他异常
+            print(f"pyautogui.click 其他异常（忽略）: {e}")
+            send_fail_msg += "pyautogui.click 其他异常\n"
+            send_qq_email(send_fail_msg)
+            return False
 
         return True
 
-    except Exception as e:
-        # 理论上不应走到这里，但兜底
+    except BaseException as e:
+        # 整个函数兜底，理论上不应触发
         print(f"force_foreground_safe 发生异常: {e}")
         return False
 
@@ -531,6 +539,8 @@ if __name__ == "__main__":
         print("找到窗口")
         res_ok = force_foreground_safe(hwnd)
         print(f"force_foreground_safe result = {res_ok}")
+        if not res_ok:
+            sys.exit()  # 或者 raise Exception
 
         # 点击真实屏幕区域
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
