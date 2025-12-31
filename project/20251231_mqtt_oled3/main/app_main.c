@@ -596,7 +596,7 @@ static void mqtt5_app_start(void)
     esp_mqtt_client_config_t mqtt5_cfg = {
         .broker.address.uri = CONFIG_BROKER_URL,
         .session.protocol_ver = MQTT_PROTOCOL_V_5,
-        .network.disable_auto_reconnect = true,
+        // .network.disable_auto_reconnect = true,
         .credentials.username = "esp_bing",
         .credentials.authentication.password = "wx123456",
         .session.last_will.topic = "/topic/will",
@@ -604,6 +604,8 @@ static void mqtt5_app_start(void)
         .session.last_will.msg_len = 12,
         .session.last_will.qos = 1,
         .session.last_will.retain = true,
+        .network.disable_auto_reconnect = false,
+        .network.reconnect_timeout_ms = 5000
     };
 
 #if CONFIG_BROKER_URL_FROM_STDIN
