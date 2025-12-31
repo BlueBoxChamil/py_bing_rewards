@@ -16,7 +16,7 @@ from email.mime.text import MIMEText
 from datetime import datetime
 import pyperclip
 from pyautogui import FailSafeException
-
+import paho.mqtt.client as mqtt
 
 # 每个随机英文单词的长度
 WORD_LEN = 8
@@ -44,6 +44,21 @@ chrome_user_data_dir = ""  # 字符串类型
 send_fail_msg = ""
 # 检测积分的时间
 check_hour = 9
+
+profile_scores = []
+
+BROKER_HOST = "192.168.12.171"  # MQTT 服务器 IP 或域名
+BROKER_PORT = 1883  # 默认端口
+
+USERNAME = "python_bing"
+PASSWORD = "wx123456"
+
+# SUB_TOPICS = [
+#     ("esp_receive_from_pc", 0),
+#     ("esp_bing_send", 0),
+# ]
+
+PUB_TOPIC = "esp_receive_from_py"
 
 
 # -----------------------------
@@ -398,6 +413,7 @@ def check_score(profile="Profile 3"):
     # tem_msg += "\n"
 
     tem_msg = ""
+    tem_profile_scores = []
 
     for index in range(len(json_obj)):
         item = json_obj[index]  # 获取当前字典
@@ -419,6 +435,13 @@ def check_score(profile="Profile 3"):
             else:
                 print(f"[mobile] Enough scores were obtained {current}/{total}")
 
+        tem_profile_scores.append(current)
+        tem_profile_scores.append(total)
+
+    profile_scores.append(tem_profile_scores)
+
+    # 关闭Chrome
+
     chrome_process.terminate()
     time.sleep(search_delay_time)
 
@@ -433,6 +456,54 @@ def check_score(profile="Profile 3"):
     if tem_msg and hour >= 9:
         send_fail_msg += f"now profile ------------------------> {profile}\n"
         send_fail_msg += tem_msg
+
+
+def profiles_to_json(data: list[list[int]]) -> str:
+    """
+    将二维数组转换为 profile_x 格式的 JSON 字符串
+    """
+    result = {}
+
+    for i, values in enumerate(data):
+        result[f"profile_{i}"] = values
+
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+def on_connect(client, userdata, flags, rc):
+    print("on_connect rc =", rc)
+
+
+def mqtt_con():
+    client = mqtt.Client(client_id="python_mqtt_client", clean_session=True)
+    client.username_pw_set(USERNAME, PASSWORD)
+
+    client.on_connect = on_connect
+
+    print("正在连接 MQTT 服务器...")
+    client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
+
+    # 启动网络循环
+    client.loop_start()
+
+    # 等待连接建立（很重要）
+    time.sleep(1)
+
+    # msg = "hello from python"
+    json_str = profiles_to_json(profile_scores)
+    # print(json_str)
+    result = client.publish(PUB_TOPIC, json_str, qos=0)
+
+    # 等待消息真正发出去
+    result.wait_for_publish()
+
+    print(f"[已发送一次] topic={PUB_TOPIC}, payload={json_str}")
+
+    # 稍微等一下再断开，确保 socket 正常关闭
+    time.sleep(0.5)
+
+    client.loop_stop()
+    client.disconnect()
 
 
 ########################################## main ########################################
@@ -591,6 +662,17 @@ if __name__ == "__main__":
     # 若存在错误信息则发送邮件
     if send_fail_msg:
         send_qq_email(send_fail_msg)
+
+    # #仅用于测试补全
+    # profile_scores.append([180,180,120,120])
+    # profile_scores.append([180,180,120,120])
+    # profile_scores.append([180,180,10,120])
+    # profile_scores.append([180,180,60,120])
+
+    # 开始连接mqtt并发送信息
+    print("profile_scores")
+    print(profile_scores)
+    mqtt_con()
 
     # 将打印重新定向
     sys.stdout = original_stdout
