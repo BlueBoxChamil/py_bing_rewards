@@ -57,8 +57,11 @@
 
 #define I2C_BUS_PORT 0
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ (400 * 1000)
-#define EXAMPLE_PIN_NUM_SDA 3
-#define EXAMPLE_PIN_NUM_SCL 4
+// #define EXAMPLE_PIN_NUM_SDA 3
+// #define EXAMPLE_PIN_NUM_SCL 4
+#define EXAMPLE_PIN_NUM_SDA 4
+#define EXAMPLE_PIN_NUM_SCL 5
+
 #define EXAMPLE_PIN_NUM_RST -1
 #define EXAMPLE_I2C_HW_ADDR 0x3c
 #define EXAMPLE_LCD_CMD_BITS 8
@@ -759,12 +762,12 @@ void app_main(void)
         .monochrome = true,
         .rotation = {
             .swap_xy = false,
-            .mirror_x = true,
-            .mirror_y = true,
+            .mirror_x = false,
+            .mirror_y = false,
         }};
     lv_disp_t *disp = lvgl_port_add_disp(&disp_cfg);
 
-    lv_disp_set_rotation(disp, LV_DISP_ROT_NONE);
+    lv_disp_set_rotation(disp, LV_DISP_ROT_180);
 
     ESP_LOGI(TAG, "Display LVGL Scroll Text");
     // Lock the mutex due to the LVGL APIs are not thread-safe
