@@ -60,6 +60,19 @@ PASSWORD = "wx123456"
 
 PUB_TOPIC = "esp_receive_from_py"
 
+URL_LIST = [
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U5qpo?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9QkY?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9ZMB?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9ZMq?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9LHQ?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9Ser?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9XdB?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9BCf?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9SeK?ocid=sapphireappshare",
+    "https://www.msn.cn/zh-cn/news/news/content/ar-AA1U9XdU?ocid=sapphireappshare",
+]
+
 
 # -----------------------------
 # 获取当前文件目录
@@ -77,6 +90,32 @@ def get_current_directory():
 def read_json(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def click_url():
+    for i, url in enumerate(URL_LIST):
+        # if i > 0:
+        keyboard.press_and_release("enter")
+        time.sleep(normal_time)
+
+        keyboard.press_and_release("tab")
+        time.sleep(normal_time)
+        keyboard.press_and_release("tab")
+        time.sleep(normal_time)
+        keyboard.press_and_release("enter")
+        time.sleep(normal_time)
+
+        keyboard.press_and_release("tab")
+        time.sleep(normal_time)
+
+        # 稳定输入 URL（关键）
+        # keyboard.write(url, delay=normal_time/10)
+        pyautogui.typewrite(url, interval=normal_time / 10)
+
+        keyboard.press_and_release("enter")
+        time.sleep(search_delay_time)
+
+        print(f"完成第 {i + 1} 次阅读：{url}")
 
 
 # -----------------------------
@@ -139,6 +178,8 @@ def click_bing():
         time.sleep(search_delay_time)
 
         print(f"完成第 {i + 1} 次：{rand_word}")  # 可选，用于调试
+
+    click_url()
 
     # 切换到主屏幕
     keyboard.press_and_release("ctrl+1")
@@ -324,6 +365,7 @@ def focus_chrome_window():
             win32gui.SetForegroundWindow(hwnd)
 
     win32gui.EnumWindows(enum_windows, None)
+
 
 ########################################## main ########################################
 if __name__ == "__main__":
