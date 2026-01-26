@@ -16,7 +16,7 @@ from email.mime.text import MIMEText
 from datetime import datetime
 import pyperclip
 from pyautogui import FailSafeException
-import paho.mqtt.client as mqtt
+# import paho.mqtt.client as mqtt
 
 # 每个随机英文单词的长度
 WORD_LEN = 8
@@ -325,187 +325,6 @@ def focus_chrome_window():
 
     win32gui.EnumWindows(enum_windows, None)
 
-
-# -----------------------------
-# 再次打开谷歌浏览器检查积分
-# -----------------------------
-def check_score(profile="Profile 3"):
-    url = "https://rewards.bing.com/pointsbreakdown"
-    # 启动Chrome（非阻塞）
-    chrome_process = subprocess.Popen(
-        [
-            chrome_path,
-            f"--user-data-dir={chrome_user_data_dir}",
-            f"--profile-directory={profile}",
-            url,
-        ]
-    )
-
-    focus_chrome_window()
-    print("Chrome已打开并聚焦，Python脚本继续执行…")
-
-    # 给浏览器一点时间启动
-    time.sleep(mumu_start_time)
-    keyboard.press_and_release("ctrl+shift+j")
-    time.sleep(normal_time)
-
-    allow_pasting = "allow pasting"
-    pyautogui.typewrite(allow_pasting)
-    time.sleep(normal_time)
-    pyautogui.press("enter")
-    time.sleep(normal_time)
-
-    js_code = """
-    const points = Array.from(document.querySelectorAll('p.pointsDetail')).map(el => {
-        return {
-            current: el.querySelector('b').innerText,
-            total: el.innerText.split('/')[1].trim()
-        };
-    });console.log(points);copy(JSON.stringify(points, null, 2));
-    """
-
-    # 将代码逐字符输入到控制台
-    pyautogui.typewrite(js_code, interval=normal_time / 100)  # 0.01秒间隔
-
-    pyautogui.press("enter")
-    time.sleep(normal_time)
-    # 获取剪贴板内容
-    data = pyperclip.paste()
-
-    # 尝试解析为 JSON
-    try:
-        json_obj = json.loads(data)
-    except json.JSONDecodeError:
-        print("剪贴板内容不是合法 JSON， 可能是打开网页失败,剪贴板内容为：")
-        print(data)
-        global send_fail_msg
-        send_fail_msg += "剪贴板内容不是合法 JSON， 可能是打开网页失败,剪贴板内容为：\n"
-        send_fail_msg += data + "\n"
-        send_qq_email(send_fail_msg)
-        sys.exit(1)
-
-    for item in json_obj:
-        print(item)
-
-    # 暂时不写入json文件中
-    # # 文件路径，例如写到脚本同目录
-    # desktop = get_current_directory()
-    # safe_profile = profile.replace(" ", "_")
-    # file_path = os.path.join(desktop, f"clipboard_{safe_profile}.json")
-
-    # # 如果文件存在，先删除
-    # if os.path.exists(file_path):
-    #     os.remove(file_path)
-
-    # # 写入 JSON 文件，带缩进
-    # with open(file_path, "w", encoding="utf-8") as f:
-    #     json.dump(json_obj, f, ensure_ascii=False, indent=4)
-
-    # print(f"剪贴板内容已保存到 {file_path}")
-
-    # # 读取并遍历 JSON 对象
-    # data_loaded = read_json(file_path)
-    # for item in data_loaded:
-    #     print(item)
-
-    # tem_msg = "\nnow profile :"
-    # tem_msg += profile
-    # tem_msg += "\n"
-
-    tem_msg = ""
-    tem_profile_scores = []
-
-    for index in range(len(json_obj)):
-        item = json_obj[index]  # 获取当前字典
-        current = int(item["current"])
-        total = int(item["total"])
-        # print("第{}条数据 -> current: {}, total: {}".format(index+1, current, total))
-
-        if index == 0:
-            if current < total:
-                print(f"[desktop] Not enough scores were obtained {current}/{total}")
-                tem_msg += f"[desktop] {current}/{total}\n"
-            else:
-                print(f"[desktop] Enough scores were obtained {current}/{total}")
-
-        if index == 1:
-            if current < total:
-                print(f"[mobile] Not enough scores were obtained {current}/{total}")
-                tem_msg += f"[mobile] {current}/{total}\n"
-            else:
-                print(f"[mobile] Enough scores were obtained {current}/{total}")
-
-        tem_profile_scores.append(current)
-        tem_profile_scores.append(total)
-
-    profile_scores.append(tem_profile_scores)
-
-    # 关闭Chrome
-
-    chrome_process.terminate()
-    time.sleep(search_delay_time)
-
-    # 获取当前时间
-    now = datetime.now()
-    # 获取小时
-    hour = now.hour
-    print(f"now hour: {hour}")
-    # global send_fail_msg
-
-    # 当tem_msg存在信息并且大于某个时间时，才会传入信息
-    if tem_msg and hour >= 9:
-        send_fail_msg += f"now profile ------------------------> {profile}\n"
-        send_fail_msg += tem_msg
-
-
-def profiles_to_json(data: list[list[int]]) -> str:
-    """
-    将二维数组转换为 profile_x 格式的 JSON 字符串
-    """
-    result = {}
-
-    for i, values in enumerate(data):
-        result[f"profile_{i}"] = values
-
-    return json.dumps(result, indent=2, ensure_ascii=False)
-
-
-def on_connect(client, userdata, flags, rc):
-    print("on_connect rc =", rc)
-
-
-def mqtt_con():
-    client = mqtt.Client(client_id="python_mqtt_client", clean_session=True)
-    client.username_pw_set(USERNAME, PASSWORD)
-
-    client.on_connect = on_connect
-
-    print("正在连接 MQTT 服务器...")
-    client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
-
-    # 启动网络循环
-    client.loop_start()
-
-    # 等待连接建立（很重要）
-    time.sleep(1)
-
-    # msg = "hello from python"
-    json_str = profiles_to_json(profile_scores)
-    # print(json_str)
-    result = client.publish(PUB_TOPIC, json_str, qos=0)
-
-    # 等待消息真正发出去
-    result.wait_for_publish()
-
-    print(f"[已发送一次] topic={PUB_TOPIC}, payload={json_str}")
-
-    # 稍微等一下再断开，确保 socket 正常关闭
-    time.sleep(0.5)
-
-    client.loop_stop()
-    client.disconnect()
-
-
 ########################################## main ########################################
 if __name__ == "__main__":
     current_dir = get_current_directory()
@@ -652,27 +471,8 @@ if __name__ == "__main__":
     # 睡眠参数和次数要放在外部json作为可调数据
     if all(results):
         print("！！！！应用仍未关闭！！！！")
-        # send_qq_email(True)
-
-    # 二次打开谷歌浏览器查看积分
-    for profile_u in chrome_profile:
-        print(profile_u)
-        check_score(profile=profile_u)
-
-    # 若存在错误信息则发送邮件
-    if send_fail_msg:
+        send_fail_msg += "！！！！应用仍未关闭！！！！\n"
         send_qq_email(send_fail_msg)
-
-    # #仅用于测试补全
-    # profile_scores.append([180,180,120,120])
-    # profile_scores.append([180,180,120,120])
-    # profile_scores.append([180,180,10,120])
-    # profile_scores.append([180,180,60,120])
-
-    # 开始连接mqtt并发送信息
-    print("profile_scores")
-    print(profile_scores)
-    mqtt_con()
 
     # 将打印重新定向
     sys.stdout = original_stdout
