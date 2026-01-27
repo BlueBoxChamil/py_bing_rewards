@@ -367,6 +367,91 @@ def focus_chrome_window():
     win32gui.EnumWindows(enum_windows, None)
 
 
+# -----------------------------
+# 做日常任务
+# -----------------------------
+def daily_task(profile="Profile 3"):
+    url = "https://rewards.bing.com/?ref=rewardspanel"
+    # 启动Chrome（非阻塞）
+    chrome_process = subprocess.Popen(
+        [
+            chrome_path,
+            f"--user-data-dir={chrome_user_data_dir}",
+            f"--profile-directory={profile}",
+            url,
+        ]
+    )
+
+    focus_chrome_window()
+    print("Chrome已打开并聚焦，Python脚本继续执行…")
+
+    # 给浏览器一点时间启动
+    time.sleep(mumu_start_time)
+    keyboard.press_and_release("ctrl+shift+j")
+    time.sleep(normal_time)
+
+    allow_pasting = "allow pasting"
+    pyautogui.typewrite(allow_pasting)
+    time.sleep(normal_time)
+    pyautogui.press("enter")
+    time.sleep(normal_time)
+
+    js_code = """
+const cards = document.querySelectorAll('.ds-card-sec.ng-scope');
+
+if (cards.length === 0) {
+    console.log('未找到 ds-card-sec ng-scope');
+} else {
+    const results = [];
+
+    cards.forEach((card, index) => {
+        const ngHref = card.getAttribute('ng-href');
+        console.log(ngHref);
+        results.push(ngHref);
+    });
+
+    copy(results.join('\\n'));
+}
+"""
+
+    # 将代码逐字符输入到控制台
+    pyautogui.typewrite(js_code, interval=normal_time / 100)  # 0.01秒间隔
+
+    pyautogui.press("enter")
+    time.sleep(normal_time)
+    # 获取剪贴板内容
+    clipboard_text = pyperclip.paste()
+
+    # 拆成多行，过滤空行
+    results = [line.strip() for line in clipboard_text.splitlines() if line.strip()]
+
+    if len(results) >= 2:
+        # results.pop(0)
+        for i, item in enumerate(results, 1):
+            print(f"{i}: {item}")
+    else:
+        print("提取到的 ng-href 少于 2 条，不打印")
+
+    # 依次在地址栏中打开 results 里的链接
+    for link in results:
+        # 聚焦地址栏
+        keyboard.press_and_release("alt+d")
+        time.sleep(0.5)
+
+        # 输入链接
+        pyautogui.typewrite(link, interval=normal_time / 100)
+
+        # 回车打开
+        pyautogui.press("enter")
+
+        # 页面停留 6 秒
+        time.sleep(search_delay_time)
+
+    # 关闭Chrome
+    chrome_process.terminate()
+    time.sleep(search_delay_time)
+
+
 ########################################## main ########################################
 if __name__ == "__main__":
     current_dir = get_current_directory()
@@ -428,34 +513,6 @@ if __name__ == "__main__":
     # print(f'normal_time: {normal_time}')
     # print(f'mumu_name: {mumu_name}')
 
-    # ===== 自动计算整个脚本的预计运行时间（仅 sleep 时间） =====
-
-    # 计算 click_bing 单次耗时
-    T_bing = (
-        bing_start_time
-        + 5 * normal_time
-        + search_delay_time
-        + (search_count - 1) * (6 * normal_time + search_delay_time)
-    )
-
-    N = len(run_device_id)  # 执行 bing 的次数
-    max_id = run_device_id[-1]  # 最大设备 ID
-    skip_count = max_id + 1 - N  # 跳过的次数（只 sleep normal_time）
-
-    # 整个循环耗时
-    T_loop = N * T_bing + skip_count * normal_time
-
-    # 总耗时：启动模拟器 + 前置延时 + 循环 + 关闭模拟器
-    T_total = mumu_start_time + 7 * normal_time + T_loop
-
-    # 转换为 分钟 + 秒
-    minutes = int(T_total // 60)
-    seconds = int(T_total % 60)
-
-    print("====== 脚本预计运行时长（仅计算 sleep）======")
-    print(f"预计总耗时：{minutes} 分 {seconds} 秒")
-    print("================================================")
-
     # 打开模拟器
     subprocess.Popen([mumu_path, "-v", "0"])
     # 10S用于加载mumu模拟器软件
@@ -515,6 +572,10 @@ if __name__ == "__main__":
         print("！！！！应用仍未关闭！！！！")
         send_fail_msg += "！！！！应用仍未关闭！！！！\n"
         send_qq_email(send_fail_msg)
+
+    for profile_u in chrome_profile:
+        print(profile_u)
+        daily_task(profile=profile_u)
 
     # 将打印重新定向
     sys.stdout = original_stdout
