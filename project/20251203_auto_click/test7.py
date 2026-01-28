@@ -423,14 +423,18 @@ if (cards.length === 0) {
     clipboard_text = pyperclip.paste()
 
     # 拆成多行，过滤空行
-    results = [line.strip() for line in clipboard_text.splitlines() if line.strip()]
+    # results = [line.strip() for line in clipboard_text.splitlines() if line.strip()]
+    results = [
+        line.strip()
+        for line in clipboard_text.splitlines()
+        if line.strip() and not line.strip().startswith("https://rewards.bing")
+    ]
 
-    if len(results) >= 2:
-        # results.pop(0)
+    if len(results) > 0:
         for i, item in enumerate(results, 1):
             print(f"{i}: {item}")
     else:
-        print("提取到的 ng-href 少于 2 条，不打印")
+        print("未提取到有效 ng-href 不打印")
 
     # 依次在地址栏中打开 results 里的链接
     for link in results:
