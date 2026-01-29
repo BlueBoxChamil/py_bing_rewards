@@ -35,7 +35,7 @@ device_num = 3
 # 账号设备id
 run_device_id = []
 # 允许保存的最大log文件个数
-MAX_LOG_FILES = 100
+MAX_LOG_FILES = 200
 # 谷歌浏览器地址
 chrome_path = ""  # 字符串类型
 # 谷歌浏览器profile
@@ -44,6 +44,11 @@ chrome_user_data_dir = ""  # 字符串类型
 send_fail_msg = ""
 # 检测积分的时间
 check_hour = 9
+# 当日首次获取积分数据
+before_scores = []
+# 最新获取积分数据
+after_scores = []
+
 
 profile_scores = []
 
@@ -90,6 +95,14 @@ def get_current_directory():
 def read_json(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+# -----------------------------
+# 写json文件
+# -----------------------------
+def write_json(file_path, data):
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 def click_url():
@@ -456,6 +469,156 @@ if (cards.length === 0) {
     time.sleep(search_delay_time)
 
 
+# -----------------------------
+# 获取最新的scores数据
+# -----------------------------
+def get_daily_scores(profile="Profile 3", scores_store=None):
+    url = "https://rewards.bing.com/?ref=rewardspanel"
+    # 启动Chrome（非阻塞）
+    chrome_process = subprocess.Popen(
+        [
+            chrome_path,
+            f"--user-data-dir={chrome_user_data_dir}",
+            f"--profile-directory={profile}",
+            url,
+        ]
+    )
+
+    focus_chrome_window()
+    print("Chrome已打开并聚焦，Python脚本继续执行…")
+
+    # 给浏览器一点时间启动
+    time.sleep(mumu_start_time)
+    keyboard.press_and_release("ctrl+shift+j")
+    time.sleep(normal_time)
+
+    allow_pasting = "allow pasting"
+    pyautogui.typewrite(allow_pasting)
+    time.sleep(normal_time)
+    pyautogui.press("enter")
+    time.sleep(normal_time)
+
+    js_code = """
+    const el = document.querySelector('[mee-element-ready]');
+
+    if (!el) {
+        console.log('未找到 mee-element-ready 元素');
+        copy('');
+    } else {
+        const value = el.getAttribute('aria-label');
+        console.log(value);
+        copy(value);
+    }
+    """
+
+    # 将代码逐字符输入到控制台
+    pyautogui.typewrite(js_code, interval=normal_time / 100)  # 0.01秒间隔
+
+    pyautogui.press("enter")
+    time.sleep(normal_time)
+    # 获取剪贴板内容
+    clipboard_text = pyperclip.paste().strip()
+
+    if clipboard_text:
+        print("获取到的 aria-label 值为：", clipboard_text)
+    else:
+        print("未获取到 aria-label")
+
+    raw_text = clipboard_text
+    if not raw_text:
+        print("未获取到 aria-label")
+    else:
+        # 去掉千分位逗号
+        number_str = raw_text.replace(",", "")
+
+        try:
+            value = int(number_str)
+            print("数值为：", value)
+        except ValueError:
+            print("转换失败，原始内容：", raw_text)
+
+    scores_store.append(value)
+
+    # 关闭Chrome
+    chrome_process.terminate()
+    time.sleep(search_delay_time)
+
+
+# -----------------------------
+# 保存积分数据到json中
+# -----------------------------
+def save_scores_to_json(base_dir, before, after, timestamp, profile=None):
+    """
+    构造记录并追加到当天 JSON 文件中
+    - base_dir: 日志存放目录
+    - before / after: 数据
+    - timestamp: 时间字符串，例如 datetime.now().strftime("%Y%m%d_%H_%M_%S")
+    - profile: 记录所属 profile
+    """
+    import os
+
+    # 1. 构造当天文件名
+    date_str = timestamp[:8]  # YYYYMMDD
+    file_name = f"{date_str}_scores.json"
+    file_path = os.path.join(base_dir, file_name)
+
+    # 2. 读取已有数据
+    if os.path.exists(file_path):
+        data = read_json(file_path)
+    else:
+        data = []
+
+    # 3. 初始化 found
+    found = False
+
+    # 4. 查找是否存在相同 profile
+    for item in data:
+        if item.get("profile") == profile:
+            # —— 已存在 profile ——
+            original_before = item.get("before", before)
+            item["scores"] = after - original_before
+            item["before"] = original_before
+            item["after"] = after
+            found = True
+            break
+
+    # 5. 不存在则追加（第一次出现该 profile）
+    if not found:
+        record = {
+            "profile": profile,
+            "before": before,
+            "after": after,
+            "scores": after - before,
+        }
+        data.append(record)
+
+    # 6. 写回文件
+    write_json(file_path, data)
+
+    # 7. 打印验证
+    print("(***************json***************)单组打印")
+    for item in data:
+        print(item)
+
+
+# -----------------------------
+# 判断json文件是否存在
+# -----------------------------
+def scores_file_exists(base_dir):
+    """
+    判断当天的 scores JSON 文件是否存在
+    - base_dir: 日志存放目录
+    返回 True 或 False
+    """
+    # 获取当天日期
+    date_str = datetime.now().strftime("%Y%m%d")
+    file_name = f"{date_str}_scores.json"
+    file_path = os.path.join(base_dir, file_name)
+
+    # 判断文件是否存在
+    return os.path.exists(file_path)
+
+
 ########################################## main ########################################
 if __name__ == "__main__":
     current_dir = get_current_directory()
@@ -516,6 +679,20 @@ if __name__ == "__main__":
     # print(f'search_count: {search_count}')
     # print(f'normal_time: {normal_time}')
     # print(f'mumu_name: {mumu_name}')
+
+    # 判断是否存在分数的json文件，不存在则需要获取
+    if scores_file_exists(log_dir):
+        print("分数json文件已存在，只获取结束时的积分\n")
+        for profile_u in chrome_profile:
+            before_scores.append(0)
+    else:
+        # 先打开网页来检查积分
+        print("运行前先获取到起始积分\n")
+        for profile_u in chrome_profile:
+            print(profile_u)
+            get_daily_scores(profile_u, before_scores)
+
+        print(f"运行前的分数是: \n{before_scores}")
 
     # 打开模拟器
     subprocess.Popen([mumu_path, "-v", "0"])
@@ -580,6 +757,16 @@ if __name__ == "__main__":
     for profile_u in chrome_profile:
         print(profile_u)
         daily_task(profile=profile_u)
+
+    # 再次检查积分，并将积分写入json
+    for i, profile_u in enumerate(chrome_profile):
+        print(profile_u)
+        get_daily_scores(profile_u, after_scores)
+        save_scores_to_json(
+            log_dir, before_scores[i], after_scores[i], timestamp, profile_u
+        )
+
+    print(f"运行后的分数是: \n{after_scores}")
 
     # 将打印重新定向
     sys.stdout = original_stdout
