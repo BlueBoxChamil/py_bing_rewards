@@ -381,11 +381,49 @@ def focus_chrome_window():
 
 
 # -----------------------------
-# 做日常任务
+# 做日常任务, 目前还在测试阶段，等刷新出新的日常任务再更新，旧版本的直接输入链接已经失效
 # -----------------------------
 def daily_task(profile="Profile 3"):
     url = "https://rewards.bing.com/?ref=rewardspanel"
-    # 启动Chrome（非阻塞）
+
+    # 加强日常任务的过滤条件，只运行未完成的，留到2月1号再更新
+    js_code = """
+const cards = document.querySelectorAll('.ds-card-sec.ng-scope');
+
+let hasValidTask = false;
+let targetCard = null;
+
+for (let index = 0; index < cards.length; index++) {
+    const card = cards[index];
+
+    const link =
+        card.getAttribute('ng-href') ||
+        card.getAttribute('href') ||
+        '';
+
+    if (link.includes('/set/browserextension')) {
+        continue;
+    }
+
+    const hasAdd = card.querySelector('.mee-icon-AddMedium');
+    const hasCheck = card.querySelector('.mee-icon-SkypeCircleCheck');
+
+    if (hasAdd && !hasCheck) {
+        hasValidTask = true;
+        targetCard = card;
+        break;
+    }
+}
+
+if (!hasValidTask) {
+    copy("false");
+} else {
+    copy("CLICKED");
+    targetCard.click();
+}
+"""
+
+    # ---------- 启动 Chrome ----------
     chrome_process = subprocess.Popen(
         [
             chrome_path,
@@ -396,77 +434,51 @@ def daily_task(profile="Profile 3"):
     )
 
     focus_chrome_window()
-    print("Chrome已打开并聚焦，Python脚本继续执行…")
-
-    # 给浏览器一点时间启动
     time.sleep(mumu_start_time)
-    keyboard.press_and_release("ctrl+shift+j")
-    time.sleep(normal_time)
 
-    allow_pasting = "allow pasting"
-    pyautogui.typewrite(allow_pasting)
-    time.sleep(normal_time)
-    pyautogui.press("enter")
-    time.sleep(normal_time)
+    print("✅ Chrome 已启动，进入 Rewards")
 
-    js_code = """
-const cards = document.querySelectorAll('.ds-card-sec.ng-scope');
+    # ---------- 主循环 ----------
+    while True:
+        # 打开 DevTools
+        keyboard.press_and_release("ctrl+shift+j")
+        time.sleep(normal_time)
 
-if (cards.length === 0) {
-    console.log('未找到 ds-card-sec ng-scope');
-} else {
-    const results = [];
+        # 允许粘贴
+        pyautogui.typewrite("allow pasting")
+        pyautogui.press("enter")
+        time.sleep(normal_time)
 
-    cards.forEach((card, index) => {
-        const ngHref = card.getAttribute('ng-href');
-        console.log(ngHref);
-        results.push(ngHref);
-    });
+        # 清空控制台（防止旧日志干扰）
+        keyboard.press_and_release("ctrl+l")
+        time.sleep(normal_time)
 
-    copy(results.join('\\n'));
-}
-"""
-
-    # 将代码逐字符输入到控制台
-    pyautogui.typewrite(js_code, interval=normal_time / 100)  # 0.01秒间隔
-
-    pyautogui.press("enter")
-    time.sleep(normal_time)
-    # 获取剪贴板内容
-    clipboard_text = pyperclip.paste()
-
-    # 拆成多行，过滤空行
-    # results = [line.strip() for line in clipboard_text.splitlines() if line.strip()]
-    results = [
-        line.strip()
-        for line in clipboard_text.splitlines()
-        if line.strip() and not line.strip().startswith("https://rewards.bing")
-    ]
-
-    if len(results) > 0:
-        for i, item in enumerate(results, 1):
-            print(f"{i}: {item}")
-    else:
-        print("未提取到有效 ng-href 不打印")
-
-    # 依次在地址栏中打开 results 里的链接
-    for link in results:
-        # 聚焦地址栏
-        keyboard.press_and_release("alt+d")
-        time.sleep(0.5)
-
-        # 输入链接
-        pyautogui.typewrite(link, interval=normal_time / 100)
-
-        # 回车打开
+        # 注入 JS
+        pyautogui.typewrite(js_code, interval=normal_time / 100)
         pyautogui.press("enter")
 
-        # 页面停留 6 秒
+        # 等 JS 执行 + 页面跳转
         time.sleep(search_delay_time)
 
-    # 关闭Chrome
+        clip = pyperclip.paste().strip()
+
+        if clip == "false":
+            print("🛑 没有任何可完成任务，退出浏览器")
+            break
+
+        print("➡️ 已点击一个任务，6 秒后返回 Rewards")
+        time.sleep(search_delay_time)
+
+        # 返回 Rewards
+        keyboard.press_and_release("alt+d")
+        time.sleep(normal_time)
+        pyautogui.typewrite(url, interval=normal_time / 100)
+        pyautogui.press("enter")
+
+    # ---------- 关闭浏览器 ----------
     chrome_process.terminate()
-    time.sleep(search_delay_time)
+    time.sleep(normal_time)
+    print("✅ Chrome 已关闭，daily scores 处理完成")
 
 
 # -----------------------------
@@ -685,6 +697,10 @@ if __name__ == "__main__":
         print("分数json文件已存在，只获取结束时的积分\n")
         for profile_u in chrome_profile:
             before_scores.append(0)
+
+        # 当json文件中每天积分大于等于90就不运行mumu模拟器
+        # 将不符合的profile更新到需要profile的文件中，最好使用两个profile，区分读积分的profile和要运行的profile
+        # 这个可以先不做，看看2月1日下午两点会刷新什么
     else:
         # 先打开网页来检查积分
         print("运行前先获取到起始积分\n")
